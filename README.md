@@ -1,7 +1,8 @@
 Description
 ===========
 
-Heat template to install fluentd and the fluentd-swift plugin
+Heat template to install fluentd and the fluent-plugin-rackspace-cloud-files
+plugin
 
 Requirements
 ============
