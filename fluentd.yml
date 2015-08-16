@@ -56,8 +56,6 @@ resources:
               - vim
               - ntp
               - build-essential
-              - ruby
-              - ruby-dev
               - libxml2-dev
               - zlib1g-dev
               - git
@@ -91,7 +89,7 @@ resources:
                   curl -L https://td-toolbelt.herokuapp.com/sh/install-ubuntu-trusty-td-agent2.sh | sh
 
                   # Install swift fluentd plugin
-                  gem install fluent-plugin-swift
+                  /usr/sbin/td-agent-gem install fluent-plugin-swift --no-ri --no-rdoc
 
                   # Add firewall rules
                   ufw allow in 22/tcp
