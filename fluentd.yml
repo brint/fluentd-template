@@ -90,7 +90,7 @@ resources:
                   # Install fluentd
                   curl -L https://td-toolbelt.herokuapp.com/sh/install-ubuntu-trusty-td-agent2.sh | sh
 
-                  # Install swift fluentd plugin
+                  # Install Rackspace Cloud Files fluentd plugin
                   /usr/sbin/td-agent-gem install fluent-plugin-rackspace-cloud-files --no-ri --no-rdoc
 
                   # Add firewall rules
