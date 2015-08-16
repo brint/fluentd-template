@@ -1,0 +1,116 @@
+heat_template_version: 2013-05-23
+
+description: Heat template to install fluentd and the fluentd-swift plugin
+
+parameters:
+  flavor:
+    label: Server Size
+    type: string
+    default: 1 GB General Purpose v1
+
+  image:
+    label: Operating System
+    type: string
+    default: Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)
+
+  server_name:
+    label: Server Hostname
+    type: string
+    default: fluentd-server
+
+resources:
+  wait_condition:
+    type: OS::Heat::SwiftSignal
+    properties:
+      handle: { get_resource: wait_condition_handle }
+      timeout: 1800
+
+  wait_condition_handle:
+    type: OS::Heat::SwiftSignalHandle
+
+  ssh_key:
+    type: "OS::Nova::KeyPair"
+    properties:
+      name: { get_param: "OS::stack_id" }
+      save_private_key: true
+
+  fluentd_server:
+    type: "OS::Nova::Server"
+    properties:
+      key_name: { get_resource: ssh_key }
+      flavor: { get_param: flavor }
+      image: { get_param: image }
+      name: { get_param: server_name }
+      metadata:
+        rax-heat: { get_param: "OS::stack_id" }
+      config_drive: "true"
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #cloud-config
+            package_update: true
+            package_upgrade: true
+            packages:
+              - curl
+              - vim
+              - ntp
+              - build-essential
+              - ruby
+              - ruby-dev
+              - libxml2-dev
+              - zlib1g-dev
+              - git
+            write_files:
+              - path: /root/.gemrc
+                permissions: '0644'
+                content: |
+                  ---
+                  gem: "--no-ri --no-rdoc"
+              # Install Script
+              - path: /tmp/fluentd.sh
+                permissions: '0544'
+                content: |
+                  #!/bin/bash -v
+
+                  # Add fluentd values to sysctl.conf
+                  echo "# Fluentd sysctl values" >> /etc/sysctl.conf
+                  echo "net.ipv4.tcp_tw_recycle = 1" >> /etc/sysctl.conf
+                  echo "net.ipv4.tcp_tw_reuse = 1" >> /etc/sysctl.conf
+                  echo "net.ipv4.ip_local_port_range = 10240    65535" >> /etc/sysctl.conf
+                  sysctl -p
+
+                  # Increase max number of file descriptors
+                  echo "root soft nofile 65536" >> /etc/security/limits.conf
+                  echo "root hard nofile 65536" >> /etc/security/limits.conf
+                  echo "* soft nofile 65536" >> /etc/security/limits.conf
+                  echo "* hard nofile 65536" >> /etc/security/limits.conf
+                  ulimit -n 65536
+
+                  # Install fluentd
+                  curl -L https://td-toolbelt.herokuapp.com/sh/install-ubuntu-trusty-td-agent2.sh | sh
+
+                  # Install swift fluentd plugin
+                  gem install fluent-plugin-swift
+
+                  # Add firewall rules
+                  ufw allow in 22/tcp
+                  ufw allow in 24224
+                  ufw allow in 8888/tcp
+                  ufw --force enable
+
+                  # Notify success
+                  wc_notify --data-binary '{"status": "SUCCESS"}'
+            runcmd:
+              - /tmp/fluentd.sh
+          params:
+            wc_notify: { get_attr: ['wait_condition_handle', 'curl_cli'] }
+
+outputs:
+  private_key:
+    value: { get_attr: [ssh_key, private_key] }
+    description: SSH Private Key
+
+  server_ip:
+    value: { get_attr: [fluentd_server, accessIPv4] }
+    description: Server IP
